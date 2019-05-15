@@ -281,8 +281,6 @@ const getSnake = state => {
 };
 
 const getPath = (path, spider, snake) => {
-  const isSpiderOnBorder = isOnBorder(spider);
-
   const prevDot = path.points[path.points.length - 2];
   const isSpiderGoingBack =
     prevDot && hasCoordinates(prevDot, spider.x, spider.y);
@@ -295,7 +293,6 @@ const getPath = (path, spider, snake) => {
   );
 
   const nextCanDraw = (() => {
-    if (isSpiderOnBorder) return true;
     if (snakeIntersectsPath) return false;
     if (isSpiderGoingBack) return true;
     if (isIntertwined) return false;
@@ -355,7 +352,8 @@ const gameReducer = (state, action) => {
 
       const path = (() => {
         if (state.tick % 2) return state.path;
-        if (isSpiderOnConcrete) return { ...state.path, points: [] };
+        if (isSpiderOnConcrete)
+          return { ...state.path, draw: true, points: [] };
         return getPath(state.path, spider, snake);
       })();
 
@@ -425,7 +423,7 @@ const Game = props => {
 
   return (
     <Box>
-      {Math.round((game.tick * tickRate) / 1000)}s elapsed{" | "}
+      {Math.floor((game.tick * tickRate) / 1000)}s elapsed{" | "}
       {getFillPercentage(game.walls)}%{"\n"}
       <Board
         spider={game.spider}
