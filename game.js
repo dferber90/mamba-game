@@ -49,6 +49,17 @@ function getFillPercentage(walls) {
   return Math.round((filled / total) * 100);
 }
 
+function consumePressedDirection(pressedDirections) {
+  const direction = pressedDirections[0];
+  return {
+    pressedDirections:
+      pressedDirections.length > 1
+        ? pressedDirections.slice(1)
+        : pressedDirections,
+    direction
+  };
+}
+
 const initialGameState = {
   state: "running",
   tick: 0,
@@ -60,7 +71,7 @@ const initialGameState = {
     draw: true,
     points: []
   },
-  nextDirection: "left",
+  pressedDirections: ["left"],
   snake: {
     direction: "left",
     points: Array.from({ length: snakeLength }).map((_, index) => ({
@@ -285,22 +296,31 @@ const getPath = (path, spider, snake) => {
 const gameReducer = (state, action) => {
   switch (action.type) {
     case "direction":
-      return { ...state, nextDirection: action.payload };
+      return {
+        ...state,
+        pressedDirections: [...state.pressedDirections, action.payload]
+      };
     case "restart":
       return initialGameState;
     case "tick": {
       const snake = getSnake(state, state.walls);
-      const spider =
+      const { pressedDirections, direction } =
         state.tick % 2
-          ? state.spider
-          : getSpider(state.nextDirection, state.spider);
+          ? consumePressedDirection(state.pressedDirections)
+          : {
+              pressedDirections: state.pressedDirections,
+              direction: state.pressedDirections[0]
+            };
+      const spider =
+        state.tick % 2 ? state.spider : getSpider(direction, state.spider);
 
       // spider is eaten when it touches the snake at any point
       const isEaten = snake.points.some(point =>
         hasSamePosition(point, spider)
       );
 
-      if (isEaten) return { ...state, state: "over", spider, snake };
+      if (isEaten)
+        return { ...state, state: "over", spider, snake, pressedDirections };
 
       const isSpiderOnConcrete = isWallFilled(state.walls, spider.x, spider.y);
 
@@ -323,6 +343,7 @@ const gameReducer = (state, action) => {
       return {
         ...state,
         tick: state.tick + 1,
+        pressedDirections,
         spider,
         snake,
         path,
@@ -375,7 +396,7 @@ const Game = props => {
   return (
     <Box justifyContent="center" alignItems="center">
       <Color rgb={[255, 255, 255]} bgKeyword="magenta">
-        {game.nextDirection}
+        {game.pressedDirections[0]}
       </Color>{" "}
       <Color rgb={[255, 255, 255]} bgKeyword="magenta">
         {Math.round((game.tick * tickRate) / 1000)}s
