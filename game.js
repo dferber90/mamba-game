@@ -12,8 +12,11 @@ const DELETE = "\x7F";
 
 const BOARD_COLS = 40;
 const BOARD_ROWS = 20;
-const tickRate = 64;
+const tickDuration = 64;
 const snakeLength = 8;
+const blockDurationInSeconds = 30;
+
+const blockTicks = (blockDurationInSeconds * 1000) / tickDuration;
 
 function isOnBorder(point) {
   return (
@@ -92,12 +95,10 @@ function consumePressedDirection(pressedDirections) {
 }
 
 const initialGameState = {
+  level: 0,
   state: "running",
   tick: 0,
-  spider: {
-    x: 0,
-    y: 0
-  },
+  spider: { x: 0, y: 0 },
   path: {
     draw: true,
     points: []
@@ -114,7 +115,9 @@ const initialGameState = {
     Array.from({ length: BOARD_COLS }).map((_, col) =>
       isOnBorder({ x: col, y: row })
     )
-  )
+  ),
+  tickOfLastBlock: 0,
+  fillPercentage: 0
 };
 
 const cols = Array.from({ length: BOARD_COLS }).map((_, index) => index);
@@ -328,6 +331,11 @@ const gameReducer = (state, action) => {
       };
     case "restart":
       return initialGameState;
+    case "next-level":
+      return {
+        ...initialGameState,
+        level: state.level + 1
+      };
     case "tick": {
       const snake = getSnake(state, state.walls);
       const { pressedDirections, direction } =
@@ -348,6 +356,10 @@ const gameReducer = (state, action) => {
       if (isEaten)
         return { ...state, state: "over", spider, snake, pressedDirections };
 
+      // ticks expired
+      if (state.tick - state.tickOfLastBlock > blockTicks)
+        return { ...state, state: "over", spider, snake, pressedDirections };
+
       const isSpiderOnConcrete = isWall(state.walls, spider.x, spider.y);
 
       const path = (() => {
@@ -357,9 +369,12 @@ const gameReducer = (state, action) => {
         return getPath(state.path, spider, snake);
       })();
 
+      const hasFinishedBlock =
+        isSpiderOnConcrete && state.path.points.length > 0;
+
       const walls = (() => {
         let nextWalls = state.walls;
-        if (isSpiderOnConcrete && state.path.points.length > 0) {
+        if (hasFinishedBlock) {
           state.path.points.forEach(point => {
             nextWalls = fillWall(nextWalls, point.x, point.y);
           });
@@ -368,15 +383,28 @@ const gameReducer = (state, action) => {
         return nextWalls;
       })();
 
-      return {
+      const fillPercentage = hasFinishedBlock
+        ? getFillPercentage(walls)
+        : state.fillPercentage;
+
+      const nextState = {
         ...state,
         tick: state.tick + 1,
         pressedDirections,
         spider,
         snake,
         path,
-        walls
+        walls,
+        tickOfLastBlock: hasFinishedBlock
+          ? state.tick + 1
+          : state.tickOfLastBlock,
+        fillPercentage
       };
+
+      if (fillPercentage >= 10)
+        return { ...nextState, state: "level-completed" };
+
+      return nextState;
     }
     default:
       throw new Error();
@@ -389,7 +417,7 @@ const Game = props => {
   useEffect(() => {
     if (!props.setRawMode || !props.stdin) return;
     props.setRawMode(true);
-    props.stdin.on("data", data => {
+    const listener = data => {
       const key = String(data);
 
       switch (key) {
@@ -407,24 +435,40 @@ const Game = props => {
           break;
       }
 
-      if (key === ENTER) {
+      if (game.state === "over" && key === ENTER) {
         dispatch({ type: "restart" });
         return;
       }
-    });
-  }, [props.stdin, props.setRawMode, dispatch]);
+      if (game.state === "level-completed" && key === ENTER) {
+        dispatch({ type: "next-level" });
+        return;
+      }
+    };
+
+    props.stdin.on("data", listener);
+    return () => {
+      props.stdin.removeListener("data", listener);
+    };
+  }, [props.stdin, props.setRawMode, dispatch, game.state]);
 
   useEffect(() => {
     if (game.state === "running") {
-      const tick = setInterval(() => dispatch({ type: "tick" }), tickRate);
+      const tick = setInterval(() => dispatch({ type: "tick" }), tickDuration);
       return () => clearInterval(tick);
     }
   }, [game.state]);
 
   return (
     <Box>
-      {Math.floor((game.tick * tickRate) / 1000)}s elapsed{" | "}
-      {getFillPercentage(game.walls)}%{"\n"}
+      {/* {Math.floor((game.tick * tickDuration) / 1000)}s elapsed{" | "} */}
+      Level {game.level + 1}
+      {" | "}
+      {Math.ceil(
+        ((blockTicks - (game.tick - game.tickOfLastBlock)) * tickDuration) /
+          1000
+      )}
+      {"s remaining | "}
+      {game.fillPercentage}%{"\n"}
       <Board
         spider={game.spider}
         snake={game.snake}
