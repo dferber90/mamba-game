@@ -12,7 +12,7 @@ const DELETE = "\x7F";
 
 const BOARD_COLS = 40;
 const BOARD_ROWS = 20;
-const tickRate = 50;
+const tickRate = 64;
 const snakeLength = 8;
 
 function isOnBorder(point) {
@@ -24,7 +24,7 @@ function isOnBorder(point) {
   );
 }
 
-function isWallFilled(walls, x, y) {
+function isWall(walls, x, y) {
   return walls[y][x];
 }
 
@@ -33,6 +33,37 @@ function fillWall(walls, x, y) {
     if (y !== rowIndex) return row;
     return row.map((fill, colIndex) => (x === colIndex ? true : fill));
   });
+}
+
+function getSnakeArea(visited, walls, x, y) {
+  return [{ x: x - 1, y }, { x: x + 1, y }, { x, y: y + 1 }, { x, y: y - 1 }]
+    .filter(({ x, y }) => {
+      if (x < 0 || x > BOARD_COLS) return false;
+      if (y < 0 || y > BOARD_ROWS) return false;
+      if (isWall(walls, x, y)) return false;
+      if (visited[y][x]) return false;
+      return true;
+    })
+    .flatMap(({ x, y }) => {
+      visited[y][x] = true;
+      return [{ x, y }, ...getSnakeArea(visited, walls, x, y)];
+    });
+}
+
+function fillNonSnakeArea(walls, snakeArea) {
+  return walls.map((row, rowIndex) => {
+    return row.map((fill, colIndex) =>
+      snakeArea.some(dot => hasCoordinates(dot, colIndex, rowIndex))
+        ? fill
+        : true
+    );
+  });
+}
+
+function fillHoles(walls, snakeHead) {
+  const visited = walls.map(row => row.map(() => false));
+  const snakeArea = getSnakeArea(visited, walls, snakeHead.x, snakeHead.y);
+  return fillNonSnakeArea(walls, snakeArea);
 }
 
 function getFillPercentage(walls) {
@@ -111,9 +142,7 @@ const Board = props => {
             }
 
             if (hasCoordinates(props.spider, col, row)) return "••";
-            if (isWallFilled(props.walls, col, row)) return "██";
-            // if (row === 0 || row === BOARD_ROWS - 1) return "██";
-            // if (col === 0 || col === BOARD_COLS - 1) return "██";
+            if (isWall(props.walls, col, row)) return "██";
             if (props.path.points.find(dot => hasCoordinates(dot, col, row)))
               return "ϾϿ";
             return "  ";
@@ -163,7 +192,7 @@ const getCanGo = (snake, possibleSnakeHeadPositions, walls) => ({
     !snake.points.some(dot =>
       hasSamePosition(dot, possibleSnakeHeadPositions.left)
     ) &&
-    !isWallFilled(
+    !isWall(
       walls,
       possibleSnakeHeadPositions.left.x,
       possibleSnakeHeadPositions.left.y
@@ -173,7 +202,7 @@ const getCanGo = (snake, possibleSnakeHeadPositions, walls) => ({
     !snake.points.some(dot =>
       hasSamePosition(dot, possibleSnakeHeadPositions.right)
     ) &&
-    !isWallFilled(
+    !isWall(
       walls,
       possibleSnakeHeadPositions.right.x,
       possibleSnakeHeadPositions.right.y
@@ -184,7 +213,7 @@ const getCanGo = (snake, possibleSnakeHeadPositions, walls) => ({
     !snake.points.some(dot =>
       hasSamePosition(dot, possibleSnakeHeadPositions.up)
     ) &&
-    !isWallFilled(
+    !isWall(
       walls,
       possibleSnakeHeadPositions.up.x,
       possibleSnakeHeadPositions.up.y
@@ -195,7 +224,7 @@ const getCanGo = (snake, possibleSnakeHeadPositions, walls) => ({
     !snake.points.some(dot =>
       hasSamePosition(dot, possibleSnakeHeadPositions.down)
     ) &&
-    !isWallFilled(
+    !isWall(
       walls,
       possibleSnakeHeadPositions.down.x,
       possibleSnakeHeadPositions.down.y
@@ -322,7 +351,7 @@ const gameReducer = (state, action) => {
       if (isEaten)
         return { ...state, state: "over", spider, snake, pressedDirections };
 
-      const isSpiderOnConcrete = isWallFilled(state.walls, spider.x, spider.y);
+      const isSpiderOnConcrete = isWall(state.walls, spider.x, spider.y);
 
       const path = (() => {
         if (state.tick % 2) return state.path;
@@ -336,6 +365,7 @@ const gameReducer = (state, action) => {
           state.path.points.forEach(point => {
             nextWalls = fillWall(nextWalls, point.x, point.y);
           });
+          nextWalls = fillHoles(nextWalls, snake.points[0]);
         }
         return nextWalls;
       })();
@@ -394,20 +424,9 @@ const Game = props => {
   }, [game.state]);
 
   return (
-    <Box justifyContent="center" alignItems="center">
-      <Color rgb={[255, 255, 255]} bgKeyword="magenta">
-        {game.pressedDirections[0]}
-      </Color>{" "}
-      <Color rgb={[255, 255, 255]} bgKeyword="magenta">
-        {Math.round((game.tick * tickRate) / 1000)}s
-      </Color>{" "}
-      <Color rgb={[255, 255, 255]} bgKeyword="magenta">
-        {game.path.points.map(p => `${p.x},${p.y}`).join(" ")}
-      </Color>{" "}
-      <Color rgb={[255, 255, 255]} bgKeyword="magenta">
-        {getFillPercentage(game.walls)}%
-      </Color>
-      {"\n"}
+    <Box>
+      {Math.round((game.tick * tickRate) / 1000)}s elapsed{" | "}
+      {getFillPercentage(game.walls)}%{"\n"}
       <Board
         spider={game.spider}
         snake={game.snake}
