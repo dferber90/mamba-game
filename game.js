@@ -20,10 +20,11 @@ const initialGameState = {
   tick: 0,
   spider: {
     x: 0,
-    y: 0,
-    direction: "left",
-    canDraw: true,
-    path: [{ x: 0, y: 0 }]
+    y: 0
+  },
+  path: {
+    draw: true,
+    points: [{ x: 0, y: 0 }]
   },
   nextDirection: "left",
   snake: {
@@ -62,7 +63,7 @@ const Board = props => {
             if (hasCoordinates(props.spider, col, row)) return "••";
             if (row === 0 || row === BOARD_ROWS - 1) return "██";
             if (col === 0 || col === BOARD_COLS - 1) return "██";
-            if (props.spider.path.find(dot => hasCoordinates(dot, col, row)))
+            if (props.path.points.find(dot => hasCoordinates(dot, col, row)))
               return "ϾϿ";
             return "  ";
           })
@@ -78,7 +79,7 @@ const limit = (position, min, max) =>
 const randomItem = items => items[Math.floor(Math.random() * items.length)];
 const last = items => items[items.length - 1];
 
-const getSpider = (nextDirection, spider, snake) => {
+const getSpider = (nextDirection, spider) => {
   const nextSpiderX = (() => {
     if (nextDirection === "right") return limit(spider.x + 1, 0, BOARD_COLS);
     if (nextDirection === "left") return limit(spider.x - 1, 0, BOARD_COLS);
@@ -91,42 +92,10 @@ const getSpider = (nextDirection, spider, snake) => {
     return spider.y;
   })();
 
-  const prevDot = spider.path[spider.path.length - 2];
-  const isSpiderGoingBack =
-    prevDot && hasCoordinates(prevDot, nextSpiderX, nextSpiderY);
-  const isIntertwined =
-    !isSpiderGoingBack &&
-    spider.path.some(dot => hasCoordinates(dot, nextSpiderX, nextSpiderY));
-
-  const isOnBorder =
-    nextSpiderX === 0 ||
-    nextSpiderY === 0 ||
-    nextSpiderX === BOARD_COLS - 1 ||
-    nextSpiderY === BOARD_ROWS - 1;
-
-  const snakeIntersectsPath = spider.path.some(dot =>
-    hasSamePosition(dot, snake.points[0])
-  );
-
-  const nextCanDraw = (() => {
-    if (isOnBorder) return true;
-    if (snakeIntersectsPath) return false;
-    if (isSpiderGoingBack) return true;
-    if (isIntertwined) return false;
-    return spider.canDraw;
-  })();
-
   return {
     ...spider,
     x: nextSpiderX,
-    y: nextSpiderY,
-    canDraw: nextCanDraw,
-    path: (() => {
-      if (!nextCanDraw) return [];
-      if (isSpiderGoingBack) return spider.path.slice(0, -1);
-
-      return [...spider.path, { x: nextSpiderX, y: nextSpiderY }];
-    })()
+    y: nextSpiderY
   };
 };
 
@@ -209,6 +178,48 @@ const getSnake = state => {
   };
 };
 
+const isOnBorder = spider =>
+  spider.x === 0 ||
+  spider.y === 0 ||
+  spider.x === BOARD_COLS - 1 ||
+  spider.y === BOARD_ROWS - 1;
+
+const getPath = (path, spider, snake) => {
+  const isSpiderOnBorder = isOnBorder(spider);
+
+  const prevDot = path.points[path.points.length - 2];
+  const isSpiderGoingBack =
+    prevDot && hasCoordinates(prevDot, spider.x, spider.y);
+  const isIntertwined = path.points.some(dot =>
+    hasCoordinates(dot, spider.x, spider.y)
+  );
+
+  const snakeIntersectsPath = path.points.some(dot =>
+    hasSamePosition(dot, snake.points[0])
+  );
+
+  const nextCanDraw = (() => {
+    if (isSpiderOnBorder) return true;
+    if (snakeIntersectsPath) return false;
+    if (isSpiderGoingBack) return true;
+    if (isIntertwined) return false;
+    return path.draw;
+  })();
+
+  if (!nextCanDraw)
+    return {
+      draw: false,
+      points: []
+    };
+
+  return {
+    draw: true,
+    points: isSpiderGoingBack
+      ? path.points.slice(0, -1)
+      : [...path.points, { x: spider.x, y: spider.y }]
+  };
+};
+
 const gameReducer = (state, action) => {
   switch (action.type) {
     case "direction":
@@ -220,26 +231,24 @@ const gameReducer = (state, action) => {
       const spider =
         state.tick % 2
           ? state.spider
-          : getSpider(state.nextDirection, state.spider, snake);
+          : getSpider(state.nextDirection, state.spider);
 
+      // spider is eaten when it touches the snake at any point
       const isEaten = snake.points.some(point =>
         hasSamePosition(point, spider)
       );
 
-      if (isEaten) {
-        return {
-          ...state,
-          state: "over",
-          spider,
-          snake
-        };
-      }
+      if (isEaten) return { ...state, state: "over", spider, snake };
+
+      const path =
+        state.tick % 2 ? state.path : getPath(state.path, spider, snake);
 
       return {
         ...state,
         tick: state.tick + 1,
         spider,
-        snake
+        snake,
+        path
       };
     }
     default:
@@ -294,10 +303,10 @@ const Game = props => {
         {Math.round((game.tick * tickRate) / 1000)}s
       </Color>{" "}
       <Color rgb={[255, 255, 255]} bgKeyword="magenta">
-        {game.snake.points.length}
+        {game.path.draw ? "yes" : "no"}
       </Color>
       {"\n"}
-      <Board spider={game.spider} snake={game.snake} />
+      <Board spider={game.spider} snake={game.snake} path={game.path} />
     </Box>
   );
 };
