@@ -151,12 +151,12 @@ const Board = props => {
 
         if (isSnake) {
           const isSnakeHead = snakePointIndex === 0;
-          return isSnakeHead ? "oo" : "··";
+          return isSnakeHead ? "oo" : "ϾϿ";
         }
 
         if (spider) return "••";
         if (props.thread.points.some(dot => hasCoordinates(dot, col, row)))
-          return "ϾϿ";
+          return "··";
         return "  ";
       })}
     </Box>
