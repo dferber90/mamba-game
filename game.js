@@ -22,12 +22,14 @@ const blockDurationInSeconds = 30;
 const blockTicks = (blockDurationInSeconds * 1000) / tickDuration;
 
 const levels = [
-  { snakeLength: 6, requiredFillPercentage: 50 },
-  { snakeLength: 8, requiredFillPercentage: 75 },
-  { snakeLength: 10, requiredFillPercentage: 85 },
-  { snakeLength: 10, requiredFillPercentage: 90 },
-  { snakeLength: 10, requiredFillPercentage: 95 },
-  { snakeLength: 20, requiredFillPercentage: 95 }
+  { snakeLength: 6, requiredFillPercentage: 50, sameDirectionFactor: 50 },
+  { snakeLength: 7, requiredFillPercentage: 50, sameDirectionFactor: 25 },
+  { snakeLength: 8, requiredFillPercentage: 50, sameDirectionFactor: 10 },
+  { snakeLength: 9, requiredFillPercentage: 75, sameDirectionFactor: 5 },
+  { snakeLength: 10, requiredFillPercentage: 85, sameDirectionFactor: 3 },
+  { snakeLength: 15, requiredFillPercentage: 90, sameDirectionFactor: 2 },
+  { snakeLength: 18, requiredFillPercentage: 93, sameDirectionFactor: 1 },
+  { snakeLength: 20, requiredFillPercentage: 95, sameDirectionFactor: 0 }
 ];
 
 function isBorder(x, y) {
@@ -129,7 +131,8 @@ const createInitialGameState = ({ level, points }) => {
     walls: rows.map((_, row) => cols.map((_, col) => isBorder(col, row))),
     tickOfLastBlock: 0,
     fillPercentage: 0,
-    requiredFillPercentage: levelData.requiredFillPercentage
+    requiredFillPercentage: levelData.requiredFillPercentage,
+    sameDirectionFactor: levelData.sameDirectionFactor
   };
 };
 
@@ -275,9 +278,9 @@ const getSnake = state => {
 
   const nextDirection = randomItem([
     // enhance chances of keeping same direction when that direction is possible
-    ...Array.from({ length: canGo[state.snake.direction] ? 2 : 0 }).map(
-      () => state.snake.direction
-    ),
+    ...Array.from({
+      length: canGo[state.snake.direction] ? state.sameDirectionFactor : 0
+    }).map(() => state.snake.direction),
     ...possibleDirections
   ]);
 
