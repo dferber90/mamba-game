@@ -108,10 +108,11 @@ function consumePressedDirection(pressedDirections) {
 const rows = Array.from({ length: BOARD_ROWS }).map((_, index) => index);
 const cols = Array.from({ length: BOARD_COLS }).map((_, index) => index);
 
-const createInitialGameState = ({ level }) => {
+const createInitialGameState = ({ level, points }) => {
   const levelData = levels[level] || last(levels);
   return {
     level,
+    points,
     state: "running",
     tick: 0,
     spider: { x: 0, y: 0 },
@@ -339,11 +340,12 @@ const gameReducer = (state, action) => {
       };
     }
     case "restart":
-      return createInitialGameState({ level: 0 });
-    case "next-level": {
-      const level = state.level + 1;
-      return createInitialGameState({ level });
-    }
+      return createInitialGameState({ level: 0, points: 0 });
+    case "next-level":
+      return createInitialGameState({
+        level: state.level + 1,
+        points: state.points
+      });
     case "tick": {
       const snake = getSnake(state, state.walls);
       const { pressedDirections, direction } =
@@ -414,8 +416,14 @@ const gameReducer = (state, action) => {
         ? getFillPercentage(walls)
         : state.fillPercentage;
 
+      const points = (() => {
+        if (!hasFinishedBlock) return state.points;
+        return state.points + fillPercentage - state.fillPercentage;
+      })();
+
       const nextState = {
         ...state,
+        points,
         tick: state.tick + 1,
         pressedDirections,
         spider,
@@ -429,7 +437,11 @@ const gameReducer = (state, action) => {
       };
 
       if (fillPercentage >= state.requiredFillPercentage)
-        return { ...nextState, state: "level-completed" };
+        return {
+          ...nextState,
+          state: "level-completed",
+          points: state.points + (state.level + 1) * fillPercentage
+        };
 
       return nextState;
     }
@@ -441,7 +453,7 @@ const gameReducer = (state, action) => {
 const Game = props => {
   const [game, dispatch] = useReducer(
     gameReducer,
-    createInitialGameState({ level: 0 })
+    createInitialGameState({ level: 0, points: 0 })
   );
 
   useEffect(() => {
@@ -501,36 +513,38 @@ const Game = props => {
     if (game.state === "level-completed")
       return (
         <Color rgb={[255, 255, 255]} bgKeyword="green">
-          Level {readableLevel} completed with {game.fillPercentage}% filled.
-          Press [ENTER] to start level {readableLevel + 1}.
+          Level {readableLevel} completed with {game.fillPercentage}% filled.{" "}
+          {game.points} Points. Press [ENTER] to start level {readableLevel + 1}
+          .
         </Color>
       );
 
     if (game.state === "over-eaten")
       return (
         <Color rgb={[255, 255, 255]} bgKeyword="darkred">
-          You got eaten in level {readableLevel}. Press [ENTER] to restart.
+          You got eaten in level {readableLevel}. {game.points} Points. Press
+          [ENTER] to restart.
         </Color>
       );
 
     if (game.state === "over-timeout")
       return (
         <Color rgb={[255, 255, 255]} bgKeyword="darkred">
-          You did not build a block in time in level {readableLevel}. Press
-          [ENTER] to restart.
+          You did not build a block in time in level {readableLevel}.{" "}
+          {game.points} Points. Press [ENTER] to restart.
         </Color>
       );
 
     return (
       <React.Fragment>
-        Level {readableLevel}
-        {" | "}
+        {`Level ${readableLevel} | `}
+        {`${game.points} Points | `}
         {Math.ceil(
           ((blockTicks - (game.tick - game.tickOfLastBlock)) * tickDuration) /
             1000
         )}
         {"s remaining | "}
-        {game.fillPercentage} of {game.requiredFillPercentage}% filled
+        {game.fillPercentage}% filled
       </React.Fragment>
     );
   })();
