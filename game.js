@@ -26,7 +26,8 @@ const levels = [
   { snakeLength: 8, requiredFillPercentage: 75 },
   { snakeLength: 10, requiredFillPercentage: 85 },
   { snakeLength: 10, requiredFillPercentage: 90 },
-  { snakeLength: 10, requiredFillPercentage: 95 }
+  { snakeLength: 10, requiredFillPercentage: 95 },
+  { snakeLength: 20, requiredFillPercentage: 95 }
 ];
 
 function isBorder(x, y) {
@@ -143,6 +144,7 @@ const Board = props => {
         const spider = hasCoordinates(props.spider, col, row);
 
         // moved this up to an early return to avoid checking snake so much
+        if (spider && props.eaten) return "xx";
         if (wall && !spider) return "██";
 
         const snakePointIndex = props.snake.points.findIndex(dot =>
@@ -440,7 +442,7 @@ const gameReducer = (state, action) => {
         return {
           ...nextState,
           state: "level-completed",
-          points: state.points + (state.level + 1) * fillPercentage
+          points: Math.ceil(state.points * (fillPercentage / 100 + 1))
         };
 
       return nextState;
@@ -535,16 +537,25 @@ const Game = props => {
         </Color>
       );
 
+    const remainingSeconds = Math.ceil(
+      ((blockTicks - (game.tick - game.tickOfLastBlock)) * tickDuration) / 1000
+    );
+
+    const color = (() => {
+      if (remainingSeconds <= 5) return "red";
+      if (remainingSeconds <= 10) return "orange";
+      return undefined;
+    })();
+
     return (
       <React.Fragment>
         {`Level ${readableLevel} | `}
-        {`${game.points} Points | `}
-        {Math.ceil(
-          ((blockTicks - (game.tick - game.tickOfLastBlock)) * tickDuration) /
-            1000
-        )}
-        {"s remaining | "}
-        {game.fillPercentage}% filled
+        {`${String(game.points).padStart(4, 0)} Points | `}
+        <Color keyword={color}>
+          {`${String(remainingSeconds).padStart(2, "0")}s remaining`}
+        </Color>
+        {" | "}
+        {String(game.fillPercentage).padStart(2, " ")}% filled
       </React.Fragment>
     );
   })();
@@ -557,6 +568,7 @@ const Game = props => {
         snake={game.snake}
         thread={game.thread}
         walls={game.walls}
+        eaten={game.state === "over-eaten"}
       />
     </Box>
   );
@@ -574,7 +586,7 @@ function Preview(props) {
         return;
       }
 
-      if (key === ENTER || key === ESCAPE) props.continue();
+      props.continue();
     };
 
     props.stdin.on("data", listener);
