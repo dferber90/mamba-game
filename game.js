@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+
+import "array-flat-polyfill";
 import React, { useEffect, useReducer } from "react";
 import { render, Color, Box, StdinContext, Text } from "ink";
 
@@ -6,9 +9,6 @@ const ARROW_DOWN = "\u001B[B";
 const ARROW_LEFT = "\u001B[D";
 const ARROW_RIGHT = "\u001B[C";
 const ENTER = "\r";
-// const CTRL_C = "\x03";
-// const BACKSPACE = "\x08";
-// const DELETE = "\x7F";
 
 const BOARD_COLS = 40;
 const BOARD_ROWS = 20;
@@ -16,24 +16,6 @@ const tickDuration = 64;
 const blockDurationInSeconds = 30;
 
 const blockTicks = (blockDurationInSeconds * 1000) / tickDuration;
-
-const SnakeHead = () => <Color>oo</Color>;
-const SnakeBody = () => <Color>··</Color>;
-const Spider = props => (
-  <Color
-    keyword={props.onWall ? "red" : "red"}
-    bgKeyword={props.onWall ? "white" : "black"}
-  >
-    ••
-  </Color>
-);
-const Wall = () => (
-  <Color keyword="white" bgKeyword="white">
-    ██
-  </Color>
-);
-const Path = () => <Text>ϾϿ</Text>;
-const FreeSpace = () => <Text>{"  "}</Text>;
 
 const levels = [
   { snakeLength: 6, requiredFillPercentage: 50 },
@@ -119,6 +101,9 @@ function consumePressedDirection(pressedDirections) {
   };
 }
 
+const rows = Array.from({ length: BOARD_ROWS }).map((_, index) => index);
+const cols = Array.from({ length: BOARD_COLS }).map((_, index) => index);
+
 const createInitialGameState = ({ level }) => {
   const levelData = levels[level] || last(levels);
   return {
@@ -135,19 +120,14 @@ const createInitialGameState = ({ level }) => {
         y: BOARD_ROWS - 2
       }))
     },
-    walls: Array.from({ length: BOARD_ROWS }).map((_, row) =>
-      Array.from({ length: BOARD_COLS }).map((_, col) =>
-        isBorder({ x: col, y: row })
-      )
+    walls: rows.map((_, row) =>
+      cols.map((_, col) => isBorder({ x: col, y: row }))
     ),
     tickOfLastBlock: 0,
     fillPercentage: 0,
     requiredFillPercentage: levelData.requiredFillPercentage
   };
 };
-
-const cols = Array.from({ length: BOARD_COLS }).map((_, index) => index);
-const rows = Array.from({ length: BOARD_ROWS }).map((_, index) => index);
 
 const hasSamePosition = (a, b) => a.x === b.x && a.y === b.y;
 const hasCoordinates = (dot, x, y) => dot.x === x && dot.y === y;
@@ -163,24 +143,14 @@ const Board = props => {
         if (isSnake) {
           const head = props.snake.points[0];
           const isSnakeHead = hasCoordinates(head, col, row);
-          return isSnakeHead ? (
-            <SnakeHead key={col} />
-          ) : (
-            <SnakeBody key={col} />
-          );
+          return isSnakeHead ? "oo" : "··";
         }
 
-        if (hasCoordinates(props.spider, col, row))
-          return (
-            <Spider
-              key={col}
-              onWall={isWall(props.walls, props.spider.x, props.spider.y)}
-            />
-          );
-        if (isWall(props.walls, col, row)) return <Wall key={col} />;
+        if (hasCoordinates(props.spider, col, row)) return "••";
+        if (isWall(props.walls, col, row)) return "██";
         if (props.path.points.find(dot => hasCoordinates(dot, col, row)))
-          return <Path key={col} />;
-        return <FreeSpace key={col} />;
+          return "ϾϿ";
+        return "  ";
       })}
     </Box>
   ));
@@ -413,16 +383,18 @@ const gameReducer = (state, action) => {
       const hasFinishedBlock =
         isSpiderOnConcrete && state.path.points.length > 0;
 
-      const walls = (() => {
-        let nextWalls = state.walls;
-        if (hasFinishedBlock) {
-          state.path.points.forEach(point => {
-            nextWalls = fillWall(nextWalls, point.x, point.y);
-          });
-          nextWalls = fillHoles(nextWalls, snake.points[0]);
-        }
-        return nextWalls;
-      })();
+      const walls = hasFinishedBlock
+        ? (() => {
+            let nextWalls = state.walls;
+
+            state.path.points.forEach(point => {
+              nextWalls = fillWall(nextWalls, point.x, point.y);
+            });
+            nextWalls = fillHoles(nextWalls, snake.points[0]);
+
+            return nextWalls;
+          })()
+        : state.walls;
 
       const fillPercentage = hasFinishedBlock
         ? getFillPercentage(walls)
@@ -539,7 +511,7 @@ const Game = props => {
             1000
         )}
         {"s remaining | "}
-        {game.fillPercentage}%
+        {game.fillPercentage} of {game.requiredFillPercentage}% filled
       </React.Fragment>
     );
   })();
