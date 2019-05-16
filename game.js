@@ -2,13 +2,14 @@
 
 import "array-flat-polyfill";
 import React, { useEffect, useReducer } from "react";
-import { render, Color, Box, StdinContext, Text } from "ink";
+import { render, Color, Box, StdinContext, AppContext } from "ink";
 
 const ARROW_UP = "\u001B[A";
 const ARROW_DOWN = "\u001B[B";
 const ARROW_LEFT = "\u001B[D";
 const ARROW_RIGHT = "\u001B[C";
 const ENTER = "\r";
+const ESCAPE = "\u001B";
 
 const BOARD_COLS = 40;
 const BOARD_ROWS = 20;
@@ -291,12 +292,7 @@ const getPath = (path, spider, snake) => {
     hasCoordinates(dot, spider.x, spider.y)
   );
 
-  const snakeIntersectsPath = path.points.some(dot =>
-    hasSamePosition(dot, snake.points[0])
-  );
-
   const nextCanDraw = (() => {
-    if (snakeIntersectsPath) return false;
     if (isSpiderGoingBack) return true;
     if (isIntertwined) return false;
     return path.draw;
@@ -374,9 +370,20 @@ const gameReducer = (state, action) => {
       const isSpiderOnConcrete = isWall(state.walls, spider.x, spider.y);
 
       const path = (() => {
-        if (state.tick % 2) return state.path;
         if (isSpiderOnConcrete)
           return { ...state.path, draw: true, points: [] };
+
+        const snakeIntersectsPath = state.path.points.some(dot =>
+          hasSamePosition(dot, snake.points[0])
+        );
+        if (snakeIntersectsPath)
+          return {
+            ...state.path,
+            draw: false,
+            points: []
+          };
+
+        if (state.tick % 2) return state.path;
         return getPath(state.path, spider, snake);
       })();
 
@@ -435,6 +442,11 @@ const Game = props => {
     props.setRawMode(true);
     const listener = data => {
       const key = String(data);
+
+      if (key === ESCAPE) {
+        props.onExit();
+        return;
+      }
 
       switch (key) {
         case ARROW_UP:
@@ -531,12 +543,16 @@ const Game = props => {
 
 const GameContainer = () => {
   return (
-    <StdinContext.Consumer>
-      {({ stdin, setRawMode }) => (
-        <Game stdin={stdin} setRawMode={setRawMode} />
+    <AppContext.Consumer>
+      {({ exit }) => (
+        <StdinContext.Consumer>
+          {({ stdin, setRawMode }) => (
+            <Game stdin={stdin} setRawMode={setRawMode} onExit={exit} />
+          )}
+        </StdinContext.Consumer>
       )}
-    </StdinContext.Consumer>
+    </AppContext.Consumer>
   );
 };
 
-render(<GameContainer />);
+render(<GameContainer />, { exitOnCtrlC: true });
