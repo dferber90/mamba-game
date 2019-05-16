@@ -571,10 +571,13 @@ function Preview(props) {
   });
 
   return (
-    <Box marginX={4} marginY={4}>
+    <Box marginX={4} marginY={4} flexDirection="column">
       <Gradient name="cristal">
         <BigText text="MAMBA" />
       </Gradient>
+      <Box width={50} marginX={2} justifyContent="center">
+        github.com/dferber90/mamba-game
+      </Box>
     </Box>
   );
 }
