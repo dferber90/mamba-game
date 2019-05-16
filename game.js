@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer, useState } from "react";
+import React, { useEffect, useReducer } from "react";
 import { render, Color, Box, StdinContext } from "ink";
 
 const ARROW_UP = "\u001B[A";
@@ -6,19 +6,26 @@ const ARROW_DOWN = "\u001B[B";
 const ARROW_LEFT = "\u001B[D";
 const ARROW_RIGHT = "\u001B[C";
 const ENTER = "\r";
-const CTRL_C = "\x03";
-const BACKSPACE = "\x08";
-const DELETE = "\x7F";
+// const CTRL_C = "\x03";
+// const BACKSPACE = "\x08";
+// const DELETE = "\x7F";
 
 const BOARD_COLS = 40;
 const BOARD_ROWS = 20;
 const tickDuration = 64;
-const snakeLength = 8;
 const blockDurationInSeconds = 30;
 
 const blockTicks = (blockDurationInSeconds * 1000) / tickDuration;
 
-function isOnBorder(point) {
+const levels = [
+  { snakeLength: 6, requiredFillPercentage: 50 },
+  { snakeLength: 8, requiredFillPercentage: 75 },
+  { snakeLength: 10, requiredFillPercentage: 85 },
+  { snakeLength: 10, requiredFillPercentage: 90 },
+  { snakeLength: 10, requiredFillPercentage: 95 }
+];
+
+function isBorder(point) {
   return (
     point.x === 0 ||
     point.y === 0 ||
@@ -94,30 +101,31 @@ function consumePressedDirection(pressedDirections) {
   };
 }
 
-const initialGameState = {
-  level: 0,
-  state: "running",
-  tick: 0,
-  spider: { x: 0, y: 0 },
-  path: {
-    draw: true,
-    points: []
-  },
-  pressedDirections: ["left"],
-  snake: {
-    direction: "left",
-    points: Array.from({ length: snakeLength }).map((_, index) => ({
-      x: BOARD_COLS - 1 - snakeLength + index,
-      y: BOARD_ROWS - 2
-    }))
-  },
-  walls: Array.from({ length: BOARD_ROWS }).map((_, row) =>
-    Array.from({ length: BOARD_COLS }).map((_, col) =>
-      isOnBorder({ x: col, y: row })
-    )
-  ),
-  tickOfLastBlock: 0,
-  fillPercentage: 0
+const createInitialGameState = ({ level }) => {
+  const levelData = levels[level] || last(levels);
+  return {
+    level,
+    state: "running",
+    tick: 0,
+    spider: { x: 0, y: 0 },
+    path: { draw: true, points: [] },
+    pressedDirections: ["left"],
+    snake: {
+      direction: "left",
+      points: Array.from({ length: levelData.snakeLength }).map((_, index) => ({
+        x: BOARD_COLS - 1 - levelData.snakeLength + index,
+        y: BOARD_ROWS - 2
+      }))
+    },
+    walls: Array.from({ length: BOARD_ROWS }).map((_, row) =>
+      Array.from({ length: BOARD_COLS }).map((_, col) =>
+        isBorder({ x: col, y: row })
+      )
+    ),
+    tickOfLastBlock: 0,
+    fillPercentage: 0,
+    requiredFillPercentage: levelData.requiredFillPercentage
+  };
 };
 
 const cols = Array.from({ length: BOARD_COLS }).map((_, index) => index);
@@ -330,12 +338,11 @@ const gameReducer = (state, action) => {
         pressedDirections: [...state.pressedDirections, action.payload]
       };
     case "restart":
-      return initialGameState;
-    case "next-level":
-      return {
-        ...initialGameState,
-        level: state.level + 1
-      };
+      return createInitialGameState({ level: 0 });
+    case "next-level": {
+      const level = state.level + 1;
+      return createInitialGameState({ level });
+    }
     case "tick": {
       const snake = getSnake(state, state.walls);
       const { pressedDirections, direction } =
@@ -354,11 +361,23 @@ const gameReducer = (state, action) => {
       );
 
       if (isEaten)
-        return { ...state, state: "over", spider, snake, pressedDirections };
+        return {
+          ...state,
+          state: "over-eaten",
+          spider,
+          snake,
+          pressedDirections
+        };
 
       // ticks expired
       if (state.tick - state.tickOfLastBlock > blockTicks)
-        return { ...state, state: "over", spider, snake, pressedDirections };
+        return {
+          ...state,
+          state: "over-timeout",
+          spider,
+          snake,
+          pressedDirections
+        };
 
       const isSpiderOnConcrete = isWall(state.walls, spider.x, spider.y);
 
@@ -401,7 +420,7 @@ const gameReducer = (state, action) => {
         fillPercentage
       };
 
-      if (fillPercentage >= 10)
+      if (fillPercentage >= state.requiredFillPercentage)
         return { ...nextState, state: "level-completed" };
 
       return nextState;
@@ -412,7 +431,10 @@ const gameReducer = (state, action) => {
 };
 
 const Game = props => {
-  const [game, dispatch] = useReducer(gameReducer, initialGameState);
+  const [game, dispatch] = useReducer(
+    gameReducer,
+    createInitialGameState({ level: 0 })
+  );
 
   useEffect(() => {
     if (!props.setRawMode || !props.stdin) return;
@@ -435,7 +457,10 @@ const Game = props => {
           break;
       }
 
-      if (game.state === "over" && key === ENTER) {
+      if (
+        (game.state === "over-eaten" || game.state === "over-timeout") &&
+        key === ENTER
+      ) {
         dispatch({ type: "restart" });
         return;
       }
@@ -458,17 +483,50 @@ const Game = props => {
     }
   }, [game.state]);
 
+  const description = (() => {
+    const readableLevel = game.level + 1;
+    if (game.state === "level-completed")
+      return (
+        <Color rgb={[255, 255, 255]} bgKeyword="green">
+          Level {readableLevel} completed. Press [ENTER] to start level{" "}
+          {readableLevel + 1}.
+        </Color>
+      );
+
+    if (game.state === "over-eaten")
+      return (
+        <Color rgb={[255, 255, 255]} bgKeyword="darkred">
+          You got eaten in level {readableLevel}. Press [ENTER] to restart.
+        </Color>
+      );
+
+    if (game.state === "over-timeout")
+      return (
+        <Color rgb={[255, 255, 255]} bgKeyword="darkred">
+          You did not build a block in time in level {readableLevel}. Press
+          [ENTER] to restart.
+        </Color>
+      );
+
+    return (
+      <React.Fragment>
+        {/* {Math.floor((game.tick * tickDuration) / 1000)}s elapsed{" | "} */}
+        Level {readableLevel}
+        {" | "}
+        {Math.ceil(
+          ((blockTicks - (game.tick - game.tickOfLastBlock)) * tickDuration) /
+            1000
+        )}
+        {"s remaining | "}
+        {game.fillPercentage}%
+      </React.Fragment>
+    );
+  })();
+
   return (
     <Box>
-      {/* {Math.floor((game.tick * tickDuration) / 1000)}s elapsed{" | "} */}
-      Level {game.level + 1}
-      {" | "}
-      {Math.ceil(
-        ((blockTicks - (game.tick - game.tickOfLastBlock)) * tickDuration) /
-          1000
-      )}
-      {"s remaining | "}
-      {game.fillPercentage}%{"\n"}
+      {description}
+      {"\n"}
       <Board
         spider={game.spider}
         snake={game.snake}
