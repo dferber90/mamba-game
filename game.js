@@ -115,7 +115,7 @@ const createInitialGameState = ({ level }) => {
     state: "running",
     tick: 0,
     spider: { x: 0, y: 0 },
-    path: { draw: true, points: [] },
+    thread: { draw: true, points: [] },
     pressedDirections: ["left"],
     snake: {
       direction: "left",
@@ -150,7 +150,7 @@ const Board = props => {
 
         if (hasCoordinates(props.spider, col, row)) return "••";
         if (isWall(props.walls, col, row)) return "██";
-        if (props.path.points.find(dot => hasCoordinates(dot, col, row)))
+        if (props.thread.points.find(dot => hasCoordinates(dot, col, row)))
           return "ϾϿ";
         return "  ";
       })}
@@ -285,18 +285,18 @@ const getSnake = state => {
   };
 };
 
-const getPath = (path, spider) => {
-  const prevDot = path.points[path.points.length - 2];
+const getThread = (thread, spider) => {
+  const prevDot = thread.points[thread.points.length - 2];
   const isSpiderGoingBack =
     prevDot && hasCoordinates(prevDot, spider.x, spider.y);
-  const isIntertwined = path.points.some(dot =>
+  const isIntertwined = thread.points.some(dot =>
     hasCoordinates(dot, spider.x, spider.y)
   );
 
   const nextCanDraw = (() => {
     if (isSpiderGoingBack) return true;
     if (isIntertwined) return false;
-    return path.draw;
+    return thread.draw;
   })();
 
   if (!nextCanDraw)
@@ -308,13 +308,13 @@ const getPath = (path, spider) => {
   return {
     draw: true,
     points: (() => {
-      if (isSpiderGoingBack) return path.points.slice(0, -1);
+      if (isSpiderGoingBack) return thread.points.slice(0, -1);
 
-      const lastPoint = last(path.points);
+      const lastPoint = last(thread.points);
       const nextPoint = { x: spider.x, y: spider.y };
       return lastPoint && hasSamePosition(lastPoint, nextPoint)
-        ? path.points
-        : [...path.points, nextPoint];
+        ? thread.points
+        : [...thread.points, nextPoint];
     })()
   };
 };
@@ -370,32 +370,32 @@ const gameReducer = (state, action) => {
 
       const isSpiderOnConcrete = isWall(state.walls, spider.x, spider.y);
 
-      const path = (() => {
+      const thread = (() => {
         if (isSpiderOnConcrete)
-          return { ...state.path, draw: true, points: [] };
+          return { ...state.thread, draw: true, points: [] };
 
-        const snakeIntersectsPath = state.path.points.some(dot =>
+        const snakeIntersectsThread = state.thread.points.some(dot =>
           hasSamePosition(dot, snake.points[0])
         );
-        if (snakeIntersectsPath)
+        if (snakeIntersectsThread)
           return {
-            ...state.path,
+            ...state.thread,
             draw: false,
             points: []
           };
 
-        if (state.tick % 2) return state.path;
-        return getPath(state.path, spider);
+        if (state.tick % 2) return state.thread;
+        return getThread(state.thread, spider);
       })();
 
       const hasFinishedBlock =
-        isSpiderOnConcrete && state.path.points.length > 0;
+        isSpiderOnConcrete && state.thread.points.length > 0;
 
       const walls = hasFinishedBlock
         ? (() => {
             let nextWalls = state.walls;
 
-            state.path.points.forEach(point => {
+            state.thread.points.forEach(point => {
               nextWalls = fillWall(nextWalls, point.x, point.y);
             });
             nextWalls = fillHoles(nextWalls, snake.points[0]);
@@ -414,7 +414,7 @@ const gameReducer = (state, action) => {
         pressedDirections,
         spider,
         snake,
-        path,
+        thread,
         walls,
         tickOfLastBlock: hasFinishedBlock
           ? state.tick + 1
@@ -535,7 +535,7 @@ const Game = props => {
       <Board
         spider={game.spider}
         snake={game.snake}
-        path={game.path}
+        thread={game.thread}
         walls={game.walls}
       />
     </Box>
