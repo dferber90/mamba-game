@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 import "array-flat-polyfill";
-import React, { useEffect, useReducer } from "react";
+import React, { useEffect, useReducer, useState } from "react";
 import { render, Color, Box, StdinContext, AppContext } from "ink";
+import Gradient from "ink-gradient";
+import BigText from "ink-big-text";
 
 const ARROW_UP = "\u001B[A";
 const ARROW_DOWN = "\u001B[B";
@@ -285,7 +287,7 @@ const getSnake = state => {
   };
 };
 
-const getPath = (path, spider, snake) => {
+const getPath = (path, spider) => {
   const prevDot = path.points[path.points.length - 2];
   const isSpiderGoingBack =
     prevDot && hasCoordinates(prevDot, spider.x, spider.y);
@@ -385,7 +387,7 @@ const gameReducer = (state, action) => {
           };
 
         if (state.tick % 2) return state.path;
-        return getPath(state.path, spider, snake);
+        return getPath(state.path, spider);
       })();
 
       const hasFinishedBlock =
@@ -542,18 +544,71 @@ const Game = props => {
   );
 };
 
+function Preview(props) {
+  useEffect(() => {
+    if (!props.setRawMode || !props.stdin) return;
+    props.setRawMode(true);
+    const listener = data => {
+      const key = String(data);
+
+      if (key === CTRL_C) {
+        props.onExit();
+        return;
+      }
+
+      if (key === ENTER || key === ESCAPE) props.continue();
+    };
+
+    props.stdin.on("data", listener);
+    return () => {
+      props.stdin.removeListener("data", listener);
+    };
+  }, [props.stdin, props.setRawMode, props.continue]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => props.continue(), 3000);
+    return () => clearTimeout(timer);
+  });
+
+  return (
+    <Box marginX={4} marginY={4}>
+      <Gradient name="cristal">
+        <BigText text="MAMBA" />
+      </Gradient>
+    </Box>
+  );
+}
+
 const GameContainer = () => {
+  const [started, setStarted] = useState(false);
   return (
     <AppContext.Consumer>
       {({ exit }) => (
         <StdinContext.Consumer>
-          {({ stdin, setRawMode }) => (
-            <Game stdin={stdin} setRawMode={setRawMode} onExit={exit} />
-          )}
+          {({ stdin, setRawMode }) => {
+            const exitHandler = () => {
+              exit();
+              process.exit();
+            };
+            return started ? (
+              <Game
+                stdin={stdin}
+                setRawMode={setRawMode}
+                onExit={exitHandler}
+              />
+            ) : (
+              <Preview
+                stdin={stdin}
+                setRawMode={setRawMode}
+                onExit={exitHandler}
+                continue={() => setStarted(true)}
+              />
+            );
+          }}
         </StdinContext.Consumer>
       )}
     </AppContext.Consumer>
   );
 };
 
-render(<GameContainer />);
+render(<GameContainer />, { exitOnCtrlC: true });
