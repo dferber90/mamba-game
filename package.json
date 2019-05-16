@@ -1,16 +1,25 @@
 {
-  "name": "mamba-cli",
-  "version": "1.0.0",
+  "name": "mamba-game",
+  "version": "1.0.1",
   "main": "index.js",
   "author": "Dominik Ferber <dominik.ferber+npm@gmail.com> (http://dferber.de/)",
   "license": "MIT",
+  "bin": {
+    "mamba": "game.dist.js"
+  },
   "scripts": {
-    "start": "babel-node game.js"
+    "start": "babel-node game.js",
+    "start:build": "node game.dist.js",
+    "build": "NODE_ENV=production babel game.js -o game.dist.js"
   },
   "dependencies": {
+    "array-flat-polyfill": "1.0.1",
     "ink": "2.1.1",
     "react": "16.8.6"
   },
+  "files": [
+    "game.dist.js"
+  ],
   "devDependencies": {
     "@babel/cli": "7.4.4",
     "@babel/core": "7.4.4",
