@@ -29,13 +29,8 @@ const levels = [
   { snakeLength: 10, requiredFillPercentage: 95 }
 ];
 
-function isBorder(point) {
-  return (
-    point.x === 0 ||
-    point.y === 0 ||
-    point.x === BOARD_COLS - 1 ||
-    point.y === BOARD_ROWS - 1
-  );
+function isBorder(x, y) {
+  return x === 0 || y === 0 || x === BOARD_COLS - 1 || y === BOARD_ROWS - 1;
 }
 
 function isWall(walls, x, y) {
@@ -54,7 +49,9 @@ function getSnakeArea(visited, walls, x, y) {
     .filter(({ x, y }) => {
       if (x < 0 || x > BOARD_COLS) return false;
       if (y < 0 || y > BOARD_ROWS) return false;
-      if (isWall(walls, x, y)) return false;
+      // Avoid inspecting the same points multiple times.
+      // As all walls are marked as visited in the beginning this also avoids
+      // crossing walls.
       if (visited[y][x]) return false;
       return true;
     })
@@ -75,7 +72,10 @@ function fillNonSnakeArea(walls, snakeArea) {
 }
 
 function fillHoles(walls, snakeHead) {
-  const visited = walls.map(row => row.map(() => false));
+  // All walls should be marked as visited by default, so we treat the
+  // map of walls as a map of visited nodes.
+  // However we slice to create a copy of the array as we're mutating in-place.
+  const visited = walls.map(row => row.slice());
   const snakeArea = getSnakeArea(visited, walls, snakeHead.x, snakeHead.y);
   return fillNonSnakeArea(walls, snakeArea);
 }
@@ -124,9 +124,7 @@ const createInitialGameState = ({ level }) => {
         y: BOARD_ROWS - 2
       }))
     },
-    walls: rows.map((_, row) =>
-      cols.map((_, col) => isBorder({ x: col, y: row }))
-    ),
+    walls: rows.map((_, row) => cols.map((_, col) => isBorder(col, row))),
     tickOfLastBlock: 0,
     fillPercentage: 0,
     requiredFillPercentage: levelData.requiredFillPercentage
@@ -140,13 +138,13 @@ const Board = props => {
   return rows.map(row => (
     <Box key={row}>
       {cols.map(col => {
-        const isSnake = props.snake.points.some(dot =>
+        const snakePointIndex = props.snake.points.findIndex(dot =>
           hasCoordinates(dot, col, row)
         );
+        const isSnake = snakePointIndex > -1;
 
         if (isSnake) {
-          const head = props.snake.points[0];
-          const isSnakeHead = hasCoordinates(head, col, row);
+          const isSnakeHead = snakePointIndex === 0;
           return isSnakeHead ? "oo" : "··";
         }
 
