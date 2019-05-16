@@ -10,6 +10,7 @@ const ARROW_LEFT = "\u001B[D";
 const ARROW_RIGHT = "\u001B[C";
 const ENTER = "\r";
 const ESCAPE = "\u001B";
+const CTRL_C = "\x03";
 
 const BOARD_COLS = 40;
 const BOARD_ROWS = 20;
@@ -443,7 +444,7 @@ const Game = props => {
     const listener = data => {
       const key = String(data);
 
-      if (key === ESCAPE) {
+      if (key === ESCAPE || key === CTRL_C) {
         props.onExit();
         return;
       }
@@ -555,4 +556,4 @@ const GameContainer = () => {
   );
 };
 
-render(<GameContainer />, { exitOnCtrlC: true });
+render(<GameContainer />);
