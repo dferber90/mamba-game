@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer } from "react";
-import { render, Color, Box, StdinContext } from "ink";
+import { render, Color, Box, StdinContext, Text } from "ink";
 
 const ARROW_UP = "\u001B[A";
 const ARROW_DOWN = "\u001B[B";
@@ -16,6 +16,24 @@ const tickDuration = 64;
 const blockDurationInSeconds = 30;
 
 const blockTicks = (blockDurationInSeconds * 1000) / tickDuration;
+
+const SnakeHead = () => <Color>oo</Color>;
+const SnakeBody = () => <Color>··</Color>;
+const Spider = props => (
+  <Color
+    keyword={props.onWall ? "red" : "red"}
+    bgKeyword={props.onWall ? "white" : "black"}
+  >
+    ••
+  </Color>
+);
+const Wall = () => (
+  <Color keyword="white" bgKeyword="white">
+    ██
+  </Color>
+);
+const Path = () => <Text>ϾϿ</Text>;
+const FreeSpace = () => <Text>{"  "}</Text>;
 
 const levels = [
   { snakeLength: 6, requiredFillPercentage: 50 },
@@ -135,33 +153,37 @@ const hasSamePosition = (a, b) => a.x === b.x && a.y === b.y;
 const hasCoordinates = (dot, x, y) => dot.x === x && dot.y === y;
 
 const Board = props => {
-  return (
-    rows
-      .map(row =>
-        cols
-          .map(col => {
-            // if (props.spider.x === col && props.spider.y === row) return "🕷 ";
+  return rows.map(row => (
+    <Box key={row}>
+      {cols.map(col => {
+        const isSnake = props.snake.points.some(dot =>
+          hasCoordinates(dot, col, row)
+        );
 
-            const isSnake = props.snake.points.some(dot =>
-              hasCoordinates(dot, col, row)
-            );
+        if (isSnake) {
+          const head = props.snake.points[0];
+          const isSnakeHead = hasCoordinates(head, col, row);
+          return isSnakeHead ? (
+            <SnakeHead key={col} />
+          ) : (
+            <SnakeBody key={col} />
+          );
+        }
 
-            if (isSnake) {
-              const head = props.snake.points[0];
-              const isSnakeHead = hasCoordinates(head, col, row);
-              return isSnakeHead ? "oo" : "··";
-            }
-
-            if (hasCoordinates(props.spider, col, row)) return "••";
-            if (isWall(props.walls, col, row)) return "██";
-            if (props.path.points.find(dot => hasCoordinates(dot, col, row)))
-              return "ϾϿ";
-            return "  ";
-          })
-          .join("")
-      )
-      .join("\n") + "\n"
-  );
+        if (hasCoordinates(props.spider, col, row))
+          return (
+            <Spider
+              key={col}
+              onWall={isWall(props.walls, props.spider.x, props.spider.y)}
+            />
+          );
+        if (isWall(props.walls, col, row)) return <Wall key={col} />;
+        if (props.path.points.find(dot => hasCoordinates(dot, col, row)))
+          return <Path key={col} />;
+        return <FreeSpace key={col} />;
+      })}
+    </Box>
+  ));
 };
 
 const limit = (position, min, max) =>
@@ -488,8 +510,8 @@ const Game = props => {
     if (game.state === "level-completed")
       return (
         <Color rgb={[255, 255, 255]} bgKeyword="green">
-          Level {readableLevel} completed. Press [ENTER] to start level{" "}
-          {readableLevel + 1}.
+          Level {readableLevel} completed with {game.fillPercentage}% filled.
+          Press [ENTER] to start level {readableLevel + 1}.
         </Color>
       );
 
@@ -510,7 +532,6 @@ const Game = props => {
 
     return (
       <React.Fragment>
-        {/* {Math.floor((game.tick * tickDuration) / 1000)}s elapsed{" | "} */}
         Level {readableLevel}
         {" | "}
         {Math.ceil(
@@ -524,9 +545,8 @@ const Game = props => {
   })();
 
   return (
-    <Box>
-      {description}
-      {"\n"}
+    <Box flexDirection="column">
+      <Box>{description}</Box>
       <Board
         spider={game.spider}
         snake={game.snake}
