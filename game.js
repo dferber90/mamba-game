@@ -380,28 +380,22 @@ const gameReducer = (state, action) => {
           pressedDirections
         };
 
-      const isSpiderOnConcrete = isWall(state.walls, spider.x, spider.y);
+      const isSpiderOnWall = isWall(state.walls, spider.x, spider.y);
 
       const thread = (() => {
-        if (isSpiderOnConcrete)
-          return { ...state.thread, draw: true, points: [] };
+        if (isSpiderOnWall) return { ...state.thread, draw: true, points: [] };
 
         const snakeIntersectsThread = state.thread.points.some(dot =>
           hasSamePosition(dot, snake.points[0])
         );
         if (snakeIntersectsThread)
-          return {
-            ...state.thread,
-            draw: false,
-            points: []
-          };
+          return { ...state.thread, draw: false, points: [] };
 
         if (state.tick % 2) return state.thread;
         return getThread(state.thread, spider);
       })();
 
-      const hasFinishedBlock =
-        isSpiderOnConcrete && state.thread.points.length > 0;
+      const hasFinishedBlock = isSpiderOnWall && state.thread.points.length > 0;
 
       const walls = hasFinishedBlock
         ? (() => {
