@@ -138,6 +138,12 @@ const Board = props => {
   return rows.map(row => (
     <Box key={row}>
       {cols.map(col => {
+        const wall = isWall(props.walls, col, row);
+        const spider = hasCoordinates(props.spider, col, row);
+
+        // moved this up to an early return to avoid checking snake so much
+        if (wall && !spider) return "██";
+
         const snakePointIndex = props.snake.points.findIndex(dot =>
           hasCoordinates(dot, col, row)
         );
@@ -148,9 +154,8 @@ const Board = props => {
           return isSnakeHead ? "oo" : "··";
         }
 
-        if (hasCoordinates(props.spider, col, row)) return "••";
-        if (isWall(props.walls, col, row)) return "██";
-        if (props.thread.points.find(dot => hasCoordinates(dot, col, row)))
+        if (spider) return "••";
+        if (props.thread.points.some(dot => hasCoordinates(dot, col, row)))
           return "ϾϿ";
         return "  ";
       })}
@@ -321,11 +326,18 @@ const getThread = (thread, spider) => {
 
 const gameReducer = (state, action) => {
   switch (action.type) {
-    case "direction":
+    case "direction": {
+      const direction = action.payload;
+
+      // Avoid pushing same direction multiple times
+      // This is for people who keep the same button pressed
+      if (direction === last(state.pressedDirections)) return state;
+
       return {
         ...state,
-        pressedDirections: [...state.pressedDirections, action.payload]
+        pressedDirections: [...state.pressedDirections, direction]
       };
+    }
     case "restart":
       return createInitialGameState({ level: 0 });
     case "next-level": {
