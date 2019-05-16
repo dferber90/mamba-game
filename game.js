@@ -389,20 +389,24 @@ const gameReducer = (state, action) => {
 
       const isSpiderOnWall = isWall(state.walls, spider.x, spider.y);
 
+      const nextThread =
+        state.tick % 2 ? state.thread : getThread(state.thread, spider);
+      const snakeIntersectsThread = nextThread.points.some(dot =>
+        hasSamePosition(dot, snake.points[0])
+      );
+
       const thread = (() => {
-        if (isSpiderOnWall) return { ...state.thread, draw: true, points: [] };
-
-        const snakeIntersectsThread = state.thread.points.some(dot =>
-          hasSamePosition(dot, snake.points[0])
-        );
-        if (snakeIntersectsThread)
-          return { ...state.thread, draw: false, points: [] };
-
-        if (state.tick % 2) return state.thread;
-        return getThread(state.thread, spider);
+        if (snakeIntersectsThread) return { draw: false, points: [] };
+        // spider is on wall in next move, but snake already intersects thread,
+        // so we give precedence to intersecting the thread
+        if (isSpiderOnWall) return { draw: true, points: [] };
+        return nextThread;
       })();
 
-      const hasFinishedBlock = isSpiderOnWall && state.thread.points.length > 0;
+      const hasFinishedBlock =
+        isSpiderOnWall &&
+        !snakeIntersectsThread &&
+        state.thread.points.length > 0;
 
       const walls = hasFinishedBlock
         ? (() => {
