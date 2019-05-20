@@ -449,7 +449,7 @@ const gameReducer = (state, action) => {
         return {
           ...nextState,
           state: "level-completed",
-          points: Math.ceil(state.points * (fillPercentage / 100 + 1))
+          points: Math.ceil(points * (fillPercentage / 100 + 1))
         };
 
       return nextState;
