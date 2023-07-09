@@ -3,10 +3,10 @@ const presets = [
     "@babel/env",
     {
       targets: { node: "current" },
-      useBuiltIns: false
-    }
+      useBuiltIns: false,
+    },
   ],
-  "@babel/preset-react"
+  "@babel/preset-react",
 ];
 
 module.exports = { presets };

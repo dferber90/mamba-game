@@ -29,7 +29,7 @@ const levels = [
   { snakeLength: 10, requiredFillPercentage: 85, sameDirectionFactor: 3 },
   { snakeLength: 15, requiredFillPercentage: 90, sameDirectionFactor: 2 },
   { snakeLength: 18, requiredFillPercentage: 93, sameDirectionFactor: 1 },
-  { snakeLength: 20, requiredFillPercentage: 95, sameDirectionFactor: 0 }
+  { snakeLength: 20, requiredFillPercentage: 95, sameDirectionFactor: 0 },
 ];
 
 function isBorder(x, y) {
@@ -48,7 +48,12 @@ function fillWall(walls, x, y) {
 }
 
 function getSnakeArea(visited, walls, x, y) {
-  return [{ x: x - 1, y }, { x: x + 1, y }, { x, y: y + 1 }, { x, y: y - 1 }]
+  return [
+    { x: x - 1, y },
+    { x: x + 1, y },
+    { x, y: y + 1 },
+    { x, y: y - 1 },
+  ]
     .filter(({ x, y }) => {
       if (x < 0 || x > BOARD_COLS) return false;
       if (y < 0 || y > BOARD_ROWS) return false;
@@ -67,7 +72,7 @@ function getSnakeArea(visited, walls, x, y) {
 function fillNonSnakeArea(walls, snakeArea) {
   return walls.map((row, rowIndex) => {
     return row.map((fill, colIndex) =>
-      snakeArea.some(dot => hasCoordinates(dot, colIndex, rowIndex))
+      snakeArea.some((dot) => hasCoordinates(dot, colIndex, rowIndex))
         ? fill
         : true
     );
@@ -78,7 +83,7 @@ function fillHoles(walls, snakeHead) {
   // All walls should be marked as visited by default, so we treat the
   // map of walls as a map of visited nodes.
   // However we slice to create a copy of the array as we're mutating in-place.
-  const visited = walls.map(row => row.slice());
+  const visited = walls.map((row) => row.slice());
   const snakeArea = getSnakeArea(visited, walls, snakeHead.x, snakeHead.y);
   return fillNonSnakeArea(walls, snakeArea);
 }
@@ -104,7 +109,7 @@ function consumePressedDirection(pressedDirections) {
       pressedDirections.length > 1
         ? pressedDirections.slice(1)
         : pressedDirections,
-    direction
+    direction,
   };
 }
 
@@ -125,24 +130,24 @@ const createInitialGameState = ({ level, points }) => {
       direction: "left",
       points: Array.from({ length: levelData.snakeLength }).map((_, index) => ({
         x: BOARD_COLS - 1 - levelData.snakeLength + index,
-        y: BOARD_ROWS - 2
-      }))
+        y: BOARD_ROWS - 2,
+      })),
     },
     walls: rows.map((_, row) => cols.map((_, col) => isBorder(col, row))),
     tickOfLastBlock: 0,
     fillPercentage: 0,
     requiredFillPercentage: levelData.requiredFillPercentage,
-    sameDirectionFactor: levelData.sameDirectionFactor
+    sameDirectionFactor: levelData.sameDirectionFactor,
   };
 };
 
 const hasSamePosition = (a, b) => a.x === b.x && a.y === b.y;
 const hasCoordinates = (dot, x, y) => dot.x === x && dot.y === y;
 
-const Board = props => {
-  return rows.map(row => (
+const Board = (props) => {
+  return rows.map((row) => (
     <Box key={row}>
-      {cols.map(col => {
+      {cols.map((col) => {
         const wall = isWall(props.walls, col, row);
         const spider = hasCoordinates(props.spider, col, row);
 
@@ -150,7 +155,7 @@ const Board = props => {
         if (spider && props.eaten) return "xx";
         if (wall && !spider) return "██";
 
-        const snakePointIndex = props.snake.points.findIndex(dot =>
+        const snakePointIndex = props.snake.points.findIndex((dot) =>
           hasCoordinates(dot, col, row)
         );
         const isSnake = snakePointIndex > -1;
@@ -161,7 +166,7 @@ const Board = props => {
         }
 
         if (spider) return "••";
-        if (props.thread.points.some(dot => hasCoordinates(dot, col, row)))
+        if (props.thread.points.some((dot) => hasCoordinates(dot, col, row)))
           return "··";
         return "  ";
       })}
@@ -172,8 +177,8 @@ const Board = props => {
 const limit = (position, min, max) =>
   Math.min(Math.max(min, position), max - 1);
 
-const randomItem = items => items[Math.floor(Math.random() * items.length)];
-const last = items => items[items.length - 1];
+const randomItem = (items) => items[Math.floor(Math.random() * items.length)];
+const last = (items) => items[items.length - 1];
 
 const getSpider = (nextDirection, spider) => {
   const nextSpiderX = (() => {
@@ -191,21 +196,21 @@ const getSpider = (nextDirection, spider) => {
   return {
     ...spider,
     x: nextSpiderX,
-    y: nextSpiderY
+    y: nextSpiderY,
   };
 };
 
-const getPossibleSnakeHeadPositions = head => ({
+const getPossibleSnakeHeadPositions = (head) => ({
   left: { x: limit(head.x - 1, 1, BOARD_COLS - 1), y: head.y },
   right: { x: limit(head.x + 1, 1, BOARD_COLS - 1), y: head.y },
   up: { x: head.x, y: limit(head.y + 1, 1, BOARD_ROWS - 1) },
-  down: { x: head.x, y: limit(head.y - 1, 1, BOARD_ROWS - 1) }
+  down: { x: head.x, y: limit(head.y - 1, 1, BOARD_ROWS - 1) },
 });
 
 const getCanGo = (snake, possibleSnakeHeadPositions, walls) => ({
   left:
     snake.direction !== "right" &&
-    !snake.points.some(dot =>
+    !snake.points.some((dot) =>
       hasSamePosition(dot, possibleSnakeHeadPositions.left)
     ) &&
     !isWall(
@@ -215,7 +220,7 @@ const getCanGo = (snake, possibleSnakeHeadPositions, walls) => ({
     ),
   right:
     snake.direction !== "left" &&
-    !snake.points.some(dot =>
+    !snake.points.some((dot) =>
       hasSamePosition(dot, possibleSnakeHeadPositions.right)
     ) &&
     !isWall(
@@ -226,7 +231,7 @@ const getCanGo = (snake, possibleSnakeHeadPositions, walls) => ({
 
   up:
     snake.direction !== "down" &&
-    !snake.points.some(dot =>
+    !snake.points.some((dot) =>
       hasSamePosition(dot, possibleSnakeHeadPositions.up)
     ) &&
     !isWall(
@@ -237,17 +242,17 @@ const getCanGo = (snake, possibleSnakeHeadPositions, walls) => ({
 
   down:
     snake.direction !== "up" &&
-    !snake.points.some(dot =>
+    !snake.points.some((dot) =>
       hasSamePosition(dot, possibleSnakeHeadPositions.down)
     ) &&
     !isWall(
       walls,
       possibleSnakeHeadPositions.down.x,
       possibleSnakeHeadPositions.down.y
-    )
+    ),
 });
 
-const getPossibleDirections = canGo => {
+const getPossibleDirections = (canGo) => {
   const possibleDirections = [];
   if (canGo.left) possibleDirections.push("left");
   if (canGo.right) possibleDirections.push("right");
@@ -256,7 +261,7 @@ const getPossibleDirections = canGo => {
   return possibleDirections;
 };
 
-const getSnake = state => {
+const getSnake = (state) => {
   const head = state.snake.points[0];
   const possibleSnakeHeadPositions = getPossibleSnakeHeadPositions(head);
   const canGo = getCanGo(state.snake, possibleSnakeHeadPositions, state.walls);
@@ -271,7 +276,7 @@ const getSnake = state => {
       // randomItem will also eventually try all directions and make the
       // snake unstuck in case it did get stuck
       direction: randomItem(["up", "down", "left", "right"]),
-      points: state.snake.points.slice().reverse()
+      points: state.snake.points.slice().reverse(),
     };
     return reverseSnake;
   }
@@ -279,9 +284,9 @@ const getSnake = state => {
   const nextDirection = randomItem([
     // enhance chances of keeping same direction when that direction is possible
     ...Array.from({
-      length: canGo[state.snake.direction] ? state.sameDirectionFactor : 0
+      length: canGo[state.snake.direction] ? state.sameDirectionFactor : 0,
     }).map(() => state.snake.direction),
-    ...possibleDirections
+    ...possibleDirections,
   ]);
 
   const nextHead = possibleSnakeHeadPositions[nextDirection];
@@ -291,8 +296,8 @@ const getSnake = state => {
     direction: nextDirection,
     points: [
       nextHead,
-      ...state.snake.points.slice(0, state.snake.points.length - 1)
-    ]
+      ...state.snake.points.slice(0, state.snake.points.length - 1),
+    ],
   };
 };
 
@@ -300,7 +305,7 @@ const getThread = (thread, spider) => {
   const prevDot = thread.points[thread.points.length - 2];
   const isSpiderGoingBack =
     prevDot && hasCoordinates(prevDot, spider.x, spider.y);
-  const isIntertwined = thread.points.some(dot =>
+  const isIntertwined = thread.points.some((dot) =>
     hasCoordinates(dot, spider.x, spider.y)
   );
 
@@ -313,7 +318,7 @@ const getThread = (thread, spider) => {
   if (!nextCanDraw)
     return {
       draw: false,
-      points: []
+      points: [],
     };
 
   return {
@@ -326,7 +331,7 @@ const getThread = (thread, spider) => {
       return lastPoint && hasSamePosition(lastPoint, nextPoint)
         ? thread.points
         : [...thread.points, nextPoint];
-    })()
+    })(),
   };
 };
 
@@ -341,7 +346,7 @@ const gameReducer = (state, action) => {
 
       return {
         ...state,
-        pressedDirections: [...state.pressedDirections, direction]
+        pressedDirections: [...state.pressedDirections, direction],
       };
     }
     case "restart":
@@ -349,7 +354,7 @@ const gameReducer = (state, action) => {
     case "next-level":
       return createInitialGameState({
         level: state.level + 1,
-        points: state.points
+        points: state.points,
       });
     case "tick": {
       const snake = getSnake(state, state.walls);
@@ -358,13 +363,13 @@ const gameReducer = (state, action) => {
           ? consumePressedDirection(state.pressedDirections)
           : {
               pressedDirections: state.pressedDirections,
-              direction: state.pressedDirections[0]
+              direction: state.pressedDirections[0],
             };
       const spider =
         state.tick % 2 ? state.spider : getSpider(direction, state.spider);
 
       // spider is eaten when it touches the snake at any point
-      const isEaten = snake.points.some(point =>
+      const isEaten = snake.points.some((point) =>
         hasSamePosition(point, spider)
       );
 
@@ -374,7 +379,7 @@ const gameReducer = (state, action) => {
           state: "over-eaten",
           spider,
           snake,
-          pressedDirections
+          pressedDirections,
         };
 
       // ticks expired
@@ -384,14 +389,14 @@ const gameReducer = (state, action) => {
           state: "over-timeout",
           spider,
           snake,
-          pressedDirections
+          pressedDirections,
         };
 
       const isSpiderOnWall = isWall(state.walls, spider.x, spider.y);
 
       const nextThread =
         state.tick % 2 ? state.thread : getThread(state.thread, spider);
-      const snakeIntersectsThread = nextThread.points.some(dot =>
+      const snakeIntersectsThread = nextThread.points.some((dot) =>
         hasSamePosition(dot, snake.points[0])
       );
 
@@ -412,7 +417,7 @@ const gameReducer = (state, action) => {
         ? (() => {
             let nextWalls = state.walls;
 
-            state.thread.points.forEach(point => {
+            state.thread.points.forEach((point) => {
               nextWalls = fillWall(nextWalls, point.x, point.y);
             });
             nextWalls = fillHoles(nextWalls, snake.points[0]);
@@ -442,14 +447,14 @@ const gameReducer = (state, action) => {
         tickOfLastBlock: hasFinishedBlock
           ? state.tick + 1
           : state.tickOfLastBlock,
-        fillPercentage
+        fillPercentage,
       };
 
       if (fillPercentage >= state.requiredFillPercentage)
         return {
           ...nextState,
           state: "level-completed",
-          points: Math.ceil(points * (fillPercentage / 100 + 1))
+          points: Math.ceil(points * (fillPercentage / 100 + 1)),
         };
 
       return nextState;
@@ -459,7 +464,7 @@ const gameReducer = (state, action) => {
   }
 };
 
-const Game = props => {
+const Game = (props) => {
   const [game, dispatch] = useReducer(
     gameReducer,
     createInitialGameState({ level: 0, points: 0 })
@@ -468,7 +473,7 @@ const Game = props => {
   useEffect(() => {
     if (!props.setRawMode || !props.stdin) return;
     props.setRawMode(true);
-    const listener = data => {
+    const listener = (data) => {
       const key = String(data);
 
       if (key === ESCAPE || key === CTRL_C) {
@@ -585,7 +590,7 @@ function Preview(props) {
   useEffect(() => {
     if (!props.setRawMode || !props.stdin) return;
     props.setRawMode(true);
-    const listener = data => {
+    const listener = (data) => {
       const key = String(data);
 
       if (key === CTRL_C) {
